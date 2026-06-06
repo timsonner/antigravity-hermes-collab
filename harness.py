@@ -54,7 +54,36 @@ class MultiAgentHarness:
         self.hermes_path = hermes_path
         self.max_rounds = max_rounds
         self.session_id = None
-        self.log_dir = os.path.join(workspace, "collab_logs")
+
+        # Clean up common Windows quoting artifacts in verify_cmd
+        if self.verify_cmd:
+            # If --rounds got absorbed into verify_cmd due to Windows quote escaping
+            match = re.search(r'\\?\s+--rounds\s+(\d+)\s*$', self.verify_cmd)
+            if match:
+                self.max_rounds = int(match.group(1))
+                self.verify_cmd = self.verify_cmd[:match.start()]
+            
+            # If --workspace got absorbed
+            match = re.search(r'\\?\s+--workspace\s+(\S+)\s*$', self.verify_cmd)
+            if match:
+                self.workspace = match.group(1).strip('"\'')
+                self.verify_cmd = self.verify_cmd[:match.start()]
+
+            # If --hermes got absorbed
+            match = re.search(r'\\?\s+--hermes\s+(\S+)\s*$', self.verify_cmd)
+            if match:
+                self.hermes_path = match.group(1).strip('"\'')
+                self.verify_cmd = self.verify_cmd[:match.start()]
+
+            # Clean trailing backslash if it was an escaped quote artifact
+            # e.g., powershell -Command " Get-Content C:\Users\admin\hello.txt\ -> needs a closing quote
+            if self.verify_cmd.count('"') % 2 != 0:
+                if self.verify_cmd.endswith('\\'):
+                    self.verify_cmd = self.verify_cmd[:-1] + '"'
+                else:
+                    self.verify_cmd = self.verify_cmd + '"'
+
+        self.log_dir = os.path.join(self.workspace, "collab_logs")
         
         # Ensure log directory exists
         os.makedirs(self.log_dir, exist_ok=True)
