@@ -94,6 +94,30 @@ class MultiAgentHarness:
         with open(self.log_file, "a", encoding="utf-8") as f:
             f.write(message + "\n")
 
+    def update_session_source(self):
+        if not self.session_id:
+            return
+        
+        # Path to Hermes state database
+        local_appdata = os.environ.get("LOCALAPPDATA", r"C:\Users\admin\AppData\Local")
+        db_path = os.path.join(local_appdata, "hermes", "state.db")
+        if not os.path.exists(db_path):
+            db_path = r"C:\Users\admin\AppData\Local\hermes\state.db"
+            
+        if not os.path.exists(db_path):
+            return
+            
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            cursor = conn.execute("UPDATE sessions SET source = 'tui' WHERE id = ?", (self.session_id,))
+            conn.commit()
+            if cursor.rowcount > 0:
+                self.log(f"[Harness]: Surface update - Set session source to 'tui' in state.db")
+            conn.close()
+        except Exception as e:
+            self.log(f"[Harness Warning]: Failed to update session source in state.db: {e}")
+
     def run_hermes_turn(self, query):
         cmd = [self.hermes_path, "chat", "-q", query]
         if self.session_id:
@@ -102,6 +126,9 @@ class MultiAgentHarness:
         # Ensure correct ComSpec is passed to prevent Windows process crashes
         env = os.environ.copy()
         env["ComSpec"] = r"C:\Windows\System32\cmd.exe"
+        
+        # Tag the session as 'tui' so it surfaces in the Hermes Desktop App history sidebar
+        env["HERMES_SESSION_SOURCE"] = "tui"
         
         self.log(f"\n--- Spawning Hermes Subprocess (Session: {self.session_id or 'New'}) ---")
         result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", cwd=self.workspace, env=env)
@@ -148,6 +175,7 @@ class MultiAgentHarness:
                 self.session_id = extract_session_id(stdout, stderr)
                 if self.session_id:
                     self.log(f"[Harness]: Captured Session ID: {self.session_id}")
+                    self.update_session_source()
             
             cleaned_reply = clean_output(stdout)
             self.log(f"\n[Hermes]:\n{cleaned_reply}")
@@ -175,6 +203,7 @@ class MultiAgentHarness:
                     f"Please analyze the errors, modify the code files, and verify the patch in your session."
                 )
                 
+        self.update_session_source()
         self.log("\n=========================================================")
         self.log("Collaboration session finished.")
         self.log(f"Transcript logged to: {self.log_file}")
