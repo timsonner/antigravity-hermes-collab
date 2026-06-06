@@ -34,6 +34,32 @@ sequenceDiagram
 
 ---
 
+## Hierarchical Delegation & Corporate Structure
+
+To tackle complex tasks efficiently without overflowing the primary agent's context window, HAM-TDD supports a hierarchical corporate delegation pattern:
+
+```mermaid
+graph TD
+    A["Antigravity (Chief Architect & QA Director)"] -->|"Task Assignment & Verification"| H_PM["Hermes (Lead Developer / Workspace PM)"]
+    H_PM -->|"Delegate Research"| H_Res["Hermes Subagent (Docs / API Spec)"]
+    H_PM -->|"Delegate Coding"| H_Dev["Hermes Subagent (Feature Coder)"]
+    H_PM -->|"Delegate QA Testing"| H_QA["Hermes Subagent (Test Writer)"]
+    H_Res -->|"Specs & Knowledge"| H_PM
+    H_Dev -->|"Code Patches"| H_PM
+    H_QA -->|"Test Assertion Suites"| H_PM
+    H_PM -->|"Final Implementation"| A
+```
+
+### Roles and Responsibilities
+* **Executive Board (Antigravity):** Directs the overall project, defines high-level architectural constraints, runs validation suites, and serves as the final sign-off gatekeeper.
+* **Lead Developer (Primary Hermes Session):** Manages the physical workspace, resolves module dependencies, integrates components, and coordinates worker subagents.
+* **Specialized Worker Subagents:**
+  * **Researcher:** Crawls docs and search results, returning synthesized facts to keep the lead developer's context window clean.
+  * **Feature Coder:** Focuses entirely on writing modular implementation code to match specs.
+  * **QA Engineer:** Focuses on writing mock test suites and discovering edge cases to verify implementation logic.
+
+---
+
 ## Features
 
 * **Task-Agnostic Execution:** Works for any language or script—simply specify a goal and a shell verification command (e.g. unit tests, linters, compilation steps).

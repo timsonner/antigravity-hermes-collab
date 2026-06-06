@@ -59,3 +59,19 @@ python harness.py --task "<task_description>" --verify "<verification_command>" 
 * **Quoting Arguments:** When passing complex nested strings in Command Prompt or PowerShell, double quotes may be absorbed. The harness has built-in regex filters to strip absorbed trailing `--rounds`, `--workspace`, or `--hermes` arguments from the verification block.
 * **ComSpec Overrides:** Because Windows child processes can inherit shell environments differently, the harness explicitly overrides the child process environment `ComSpec` variable to target `cmd.exe` directly when spawning Hermes CLI instances to avoid path resolution errors.
 * **Persistent Logs:** Complete round histories and verification output logs are saved in `collab_logs/collaboration_transcript.log` for inspection.
+
+---
+
+## 5. Hierarchical Corporate Delegation Pattern
+
+To solve complex engineering objectives, agents can delegate sub-tasks within a hierarchical "corporate structure" to isolate context and scale capability:
+
+1. **Executive Board (Antigravity Orchestrator):** Manages high-level requirements and serves as the quality gatekeeper (runs tests).
+2. **Project Manager (Lead Hermes):** Coordinates the repository workspace, runs build steps, and allocates specialized worker subagents for sub-tasks.
+3. **Specialized Worker Subagents:**
+   * **Research Subagent:** Handles documentation lookups and web searches (keeps lead developer's context clean).
+   * **Feature Coder Subagent:** Implements target features and modules.
+   * **QA Subagent:** Writes test harnesses and targets edge cases to break and strengthen the software.
+
+*Recommended Skill Prompting:* When giving tasks to Hermes, explicitly instruct the agent: 
+> "Evaluate if this task requires documentation research or unit testing. If so, spawn specialized subagents to implement or research, and integrate their outputs back in your primary session."
