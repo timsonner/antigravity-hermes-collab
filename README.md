@@ -1,79 +1,66 @@
-# Antigravity & Hermes: Agent-to-Agent Collaboration Harness
+# HAM-TDD: Hermes & Antigravity Multi-Agent Test-Driven Development Framework
 
-This repository contains the complete implementation of a multi-agent coding collaboration system. It demonstrates how two separate AI agents—**Antigravity** (Google DeepMind's coding assistant) and **Hermes** (Nous Research's system-access agent)—interact directly to plan, write, patch, and execute software.
+HAM-TDD is a task-agnostic, multi-agent collaboration framework that enables **Antigravity** (Google DeepMind's coding assistant) and **Hermes** (Nous Research's system-access agent) to collaboratively implement and verify software using Test-Driven Development (TDD).
 
-In this demonstration project, the two agents collaborated over a 3-turn interactive feedback loop to build a premium, dark-mode Windows system telemetry dashboard.
-
----
-
-## Project Structure
-
-* **`agent_collab.py`**: The orchestration harness. It manages the conversation, handles child process UTF-8 streams, automatically parses Hermes session IDs, and handles session resumes in the Hermes CLI.
-* **`system_dashboard.py`**: The telemetry program written by the agents. It queries Windows system statistics (including live CPU, RAM, C:\ disk allocation, and the active Windows Page File configuration using CIM/WMI) and compiles it.
-* **`system_status.html`**: The output of the telemetry program—a responsive, Linear-design-inspired dark-mode system monitor with glowing SVG arc utilization gauges.
+Instead of target-specific code, this framework provides a general-purpose orchestration harness (`harness.py`) that drives Hermes to complete **any** user-defined task, executing verification checks in a loop until the tests pass.
 
 ---
 
-## How It Works: The Multi-Agent Loop
+## How It Works: The TDD Feedback Loop
 
 ```mermaid
 sequenceDiagram
-    participant A as Antigravity (Orchestrator)
-    participant H as Hermes (Worker CLI)
-    participant S as Host System
+    participant A as Antigravity (Coordinating Reviewer)
+    participant H as Hermes (Worker Agent)
+    participant V as Verification Runner (Pytest/Script/Linter)
     
-    A->>H: Turn 1: Propose HTML Structure & Design Style
-    Note over H: Hermes starts new session & plans design
-    H-->>A: Returns session ID + HTML layout
+    A->>H: Round 1: Present goal & request implementation plan
+    Note over H: Hermes plans and writes initial code
+    H-->>A: Returns code structure / files written
     
-    A->>H: Turn 2: Review layout, request Python telemetry & WMI logic
-    Note over H: Hermes resumes session, tests stats gathering
-    H-->>A: Returns integrated code
-    
-    A->>H: Turn 3: Approve code, instruct writing to system_dashboard.py & run
-    Note over H: Hermes writes file and executes it
-    H->>S: Executes system_dashboard.py
-    S-->>H: Generates system_status.html
-    H-->>A: Reports success!
+    loop Evaluation
+        A->>V: Execute verify command (e.g. pytest tests/)
+        V-->>A: Return status + stdout/stderr
+        alt Verification Passed
+            A->>H: Sign-off: "Verification passed! Task complete."
+            Note over A,H: Termination: Loop Exits
+        else Verification Failed
+            A->>H: Round N: Feed error stack trace & request fixes
+            Note over H: Hermes patches code and files
+            H-->>A: Returns fix report
+        end
+    end
 ```
 
 ---
 
-## Windows Setup & Requirements
+## Features
 
-To prevent standard Node and shell execution errors during compilation or script execution on Windows, apply the following environment corrections:
-
-### 1. Fix Npm Script Shell (CMD vs PowerShell)
-By default, npm may attempt to run script hooks in PowerShell. Since package scripts write install commands using CMD operators (`||`), this causes syntax errors in PowerShell.
-```powershell
-npm config set script-shell C:\Windows\System32\cmd.exe
-npm config set shell C:\Windows\System32\cmd.exe
-```
-
-### 2. Reset ComSpec Variable
-If `$env:ComSpec` has been redirected to `powershell.exe`, utility commands like `cross-env` or `electron-builder` will crash. Reset it to the Windows default:
-```powershell
-Remove-ItemProperty -Path 'HKCU:\Environment' -Name 'COMSPEC' -ErrorAction SilentlyContinue
-```
-
-### 3. Paging File Allocation
-Compilation requires high memory commitment. Raise your Commit Limit to prevent `0x800705AF` (Paging file is too small) crashes. For a **24 GB RAM** system, set the pagefile target to:
-* **Initial Size:** `36864` (36 GB)
-* **Maximum Size:** `73728` (72 GB)
+* **Task-Agnostic Execution:** Works for any language or script—simply specify a goal and a shell verification command (e.g. unit tests, linters, compilation steps).
+* **Automatic Error Feedback:** If the verification command fails, the harness automatically captures the exact terminal error output and feeds it directly back to Hermes' session for automated patching.
+* **Hermes Session Tracking:** Automatically strips ANSI colors and parses stdout/stderr to track and resume Hermes CLI sessions across execution rounds.
+* **Process Env Safety:** Bypasses Windows-specific shell crashes by forcing standard `ComSpec` (`cmd.exe`) variables in child processes.
+* **Persistent Logs:** Every agent-to-agent transcript and verification result is logged under `collab_logs/collaboration_transcript.log`.
 
 ---
 
-## How to Run the Harness
+## Setup & Environment
 
-1. **Initialize the Environment:**
-   Ensure you have installed the [Hermes Agent CLI](https://github.com/NousResearch/hermes-agent) and configured your API credentials (`GEMINI_API_KEY` or `GOOGLE_API_KEY`).
-   
-2. **Execute the Loop:**
-   Run the harness script:
-   ```bash
-   python agent_collab.py
-   ```
-   *The script will automatically configure console streams to UTF-8, call the Hermes executable, and log the agent-to-agent transcript.*
+Ensure you have your environment variables set (`GEMINI_API_KEY` or `GOOGLE_API_KEY` for Google Gemini models) and your npm execution shell settings configured correctly as described in [install-hermes-desktop](file:///C:/Users/admin/AppData/Local/hermes/skills/devops/install-hermes-desktop/SKILL.md).
 
-3. **Open the Output Dashboard:**
-   Double-click the generated `system_status.html` file in your browser to view your live, auto-refreshing dark-mode system metrics page!
+---
+
+## How to Run
+
+Launch the harness by specifying a task and an optional verification command:
+
+```bash
+python harness.py --task "Implement a Python function in fib.py that computes Fibonacci numbers, and add unit tests" --verify "pytest fib.py"
+```
+
+### CLI Arguments
+* `--task`: **(Required)** The description of the goal you want the agents to achieve.
+* `--verify`: Optional shell command to run to verify task completion (e.g., `pytest`, `npm test`, `python test.py`).
+* `--workspace`: Directory where commands and files are written (default: `C:\Users\admin`).
+* `--hermes`: Path to the `hermes.exe` CLI binary.
+* `--rounds`: Maximum conversation iterations to try before giving up (default: `5`).
