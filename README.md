@@ -65,6 +65,7 @@ graph TD
 * **Task-Agnostic Execution:** Works for any language or script—simply specify a goal and a shell verification command (e.g. unit tests, linters, compilation steps).
 * **Automatic Error Feedback:** If the verification command fails, the harness automatically captures the exact terminal error output and feeds it directly back to Hermes' session for automated patching.
 * **Hermes Session Tracking:** Automatically strips ANSI colors and parses stdout/stderr to track and resume Hermes CLI sessions across execution rounds.
+* **Native MCP Collaboration & Auto-Approval:** Communicates with Hermes's built-in stdio MCP server (`hermes mcp serve`) for clean markdown data exchange, while automatically monitoring and approving security-gated commands on the fly.
 * **Process Env Safety:** Bypasses Windows-specific shell crashes by forcing standard `ComSpec` (`cmd.exe`) variables in child processes.
 * **Persistent Logs:** Every agent-to-agent transcript and verification result is logged under `collab_logs/collaboration_transcript.log`.
 
@@ -90,3 +91,4 @@ python harness.py --task "Implement a Python function in fib.py that computes Fi
 * `--workspace`: Directory where commands and files are written (default: `C:\Users\admin`).
 * `--hermes`: Path to the `hermes.exe` CLI binary.
 * `--rounds`: Maximum conversation iterations to try before giving up (default: `5`).
+* `--target`: Optional MCP target session key (e.g., `telegram:6308981865`, `discord:#general`). When specified, the harness automatically runs via native stdio MCP and auto-approves linter/terminal command gates.
