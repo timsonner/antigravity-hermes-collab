@@ -1,94 +1,85 @@
-# HAM-TDD: Hermes & Antigravity Multi-Agent Test-Driven Development Framework
+# HAM-TDD
 
-HAM-TDD is a task-agnostic, multi-agent collaboration framework that enables **Antigravity** (Google DeepMind's coding assistant) and **Hermes** (Nous Research's system-access agent) to collaboratively implement and verify software using Test-Driven Development (TDD).
+HAM-TDD (Hermes and Antigravity Multi-Agent Test-Driven Development) is a Python harness that sends a task to the Hermes CLI, runs a shell command you supply, and feeds that command's output back to Hermes until the command exits 0 or the round limit is hit.
 
-Instead of target-specific code, this framework provides a general-purpose orchestration harness (`harness.py`) that drives Hermes to complete **any** user-defined task, executing verification checks in a loop until the tests pass.
+`harness.py` is the program. It does not implement a product feature by itself. You provide the goal and the check. `HAM_TDD_SPEC.md` and the files under `skills/` describe the MCP message flow and the skill text meant for Hermes.
 
----
+## Prerequisites
 
-## How It Works: The TDD Feedback Loop
+- Python 3.7 or newer. `harness.py` imports only the standard library. This repository has no `requirements.txt`, `pyproject.toml`, or other package manifest.
+- A Hermes CLI executable. The harness launches `<hermes> mcp serve`. When that server has no conversation and no channel, the harness runs `<hermes> chat -q` instead, and later adds `--resume <session_id>` when it can parse a session id from the CLI output.
+- A writable workspace. Each run appends `<workspace>/collab_logs/collaboration_transcript.log`.
 
-```mermaid
-sequenceDiagram
-    participant A as Antigravity (Coordinating Reviewer)
-    participant H as Hermes (Worker Agent)
-    participant V as Verification Runner (Pytest/Script/Linter)
-    
-    A->>H: Round 1: Present goal & request implementation plan
-    Note over H: Hermes plans and writes initial code
-    H-->>A: Returns code structure / files written
-    
-    loop Evaluation
-        A->>V: Execute verify command (e.g. pytest tests/)
-        V-->>A: Return status + stdout/stderr
-        alt Verification Passed
-            A->>H: Sign-off: "Verification passed! Task complete."
-            Note over A,H: Termination: Loop Exits
-        else Verification Failed
-            A->>H: Round N: Feed error stack trace & request fixes
-            Note over H: Hermes patches code and files
-            H-->>A: Returns fix report
-        end
-    end
-```
+When `LOCALAPPDATA` is set and this file exists, the default `--hermes` path is `%LOCALAPPDATA%\hermes\hermes-agent\venv\Scripts\hermes.exe`. When `USERPROFILE` is set and that directory exists, it is the default `--workspace`. Otherwise the script uses built-in Windows fallback paths. Pass `--hermes` and `--workspace` on any machine where those defaults are missing.
 
----
+Child processes get `ComSpec` set to `C:\Windows\System32\cmd.exe`. CLI fallback mode also sets `HERMES_SESSION_SOURCE` to `tui`. If `%LOCALAPPDATA%\hermes\state.db` exists, the harness sets that session's `source` column to `tui`.
 
-## Hierarchical Delegation & Corporate Structure
+## Install, build, run, and test
 
-To tackle complex tasks efficiently without overflowing the primary agent's context window, HAM-TDD supports a hierarchical corporate delegation pattern:
+Cloning the repository is the install. There is no build script and no test suite.
 
-```mermaid
-graph TD
-    A["Antigravity (Chief Architect & QA Director)"] -->|"Task Assignment & Verification"| H_PM["Hermes (Lead Developer / Workspace PM)"]
-    H_PM -->|"Delegate Research"| H_Res["Hermes Subagent (Docs / API Spec)"]
-    H_PM -->|"Delegate Coding"| H_Dev["Hermes Subagent (Feature Coder)"]
-    H_PM -->|"Delegate QA Testing"| H_QA["Hermes Subagent (Test Writer)"]
-    H_Res -->|"Specs & Knowledge"| H_PM
-    H_Dev -->|"Code Patches"| H_PM
-    H_QA -->|"Test Assertion Suites"| H_PM
-    H_PM -->|"Final Implementation"| A
-```
-
-### Roles and Responsibilities
-* **Executive Board (Antigravity):** Directs the overall project, defines high-level architectural constraints, runs validation suites, and serves as the final sign-off gatekeeper.
-* **Lead Developer (Primary Hermes Session):** Manages the physical workspace, resolves module dependencies, integrates components, and coordinates worker subagents.
-* **Specialized Worker Subagents:**
-  * **Researcher:** Crawls docs and search results, returning synthesized facts to keep the lead developer's context window clean.
-  * **Feature Coder:** Focuses entirely on writing modular implementation code to match specs.
-  * **QA Engineer:** Focuses on writing mock test suites and discovering edge cases to verify implementation logic.
-
----
-
-## Features
-
-* **Task-Agnostic Execution:** Works for any language or script—simply specify a goal and a shell verification command (e.g. unit tests, linters, compilation steps).
-* **Automatic Error Feedback:** If the verification command fails, the harness automatically captures the exact terminal error output and feeds it directly back to Hermes' session for automated patching.
-* **Hermes Session Tracking:** Automatically strips ANSI colors and parses stdout/stderr to track and resume Hermes CLI sessions across execution rounds.
-* **Native MCP Collaboration & Auto-Approval:** Communicates with Hermes's built-in stdio MCP server (`hermes mcp serve`) for clean markdown data exchange, while automatically monitoring and approving security-gated commands on the fly.
-* **Process Env Safety:** Bypasses Windows-specific shell crashes by forcing standard `ComSpec` (`cmd.exe`) variables in child processes.
-* **Persistent Logs:** Every agent-to-agent transcript and verification result is logged under `collab_logs/collaboration_transcript.log`.
-
----
-
-## Setup & Environment
-
-Ensure you have your environment variables set (`GEMINI_API_KEY` or `GOOGLE_API_KEY` for Google Gemini models) and your npm execution shell settings configured correctly as described in [install-hermes-desktop](file:///C:/Users/admin/AppData/Local/hermes/skills/devops/install-hermes-desktop/SKILL.md).
-
----
-
-## How to Run
-
-Launch the harness by specifying a task and an optional verification command:
+From the repository root, these commands check the script and print the CLI:
 
 ```bash
-python harness.py --task "Implement a Python function in fib.py that computes Fibonacci numbers, and add unit tests" --verify "pytest fib.py"
+python3 -m py_compile harness.py
+python3 harness.py --help
 ```
 
-### CLI Arguments
-* `--task`: **(Required)** The description of the goal you want the agents to achieve.
-* `--verify`: Optional shell command to run to verify task completion (e.g., `pytest`, `npm test`, `python test.py`).
-* `--workspace`: Directory where commands and files are written (default: `C:\Users\admin`).
-* `--hermes`: Path to the `hermes.exe` CLI binary.
-* `--rounds`: Maximum conversation iterations to try before giving up (default: `5`).
-* `--target`: Optional MCP target session key (e.g., `telegram:6308981865`, `discord:#general`). When specified, the harness automatically runs via native stdio MCP and auto-approves linter/terminal command gates.
+On Windows the interpreter is often named `python`. The same two commands work with that name when `python3` is absent.
+
+A full run needs Hermes on the machine. This invocation matches the arguments in `harness.py`:
+
+```bash
+python3 harness.py \
+  --task "Describe the goal in one sentence" \
+  --verify "python3 -m py_compile harness.py" \
+  --workspace "." \
+  --hermes "hermes" \
+  --rounds 5
+```
+
+`--hermes` must be the Hermes executable, or the name `hermes` when that executable is on `PATH`. Replace `--task` with the goal. Replace `--verify` with the check that should pass when the goal is done. The harness runs that string through the system shell with `--workspace` as the working directory. Exit code 0 means the check passed. Omitting `--verify` makes the harness treat the check as passed and stop after the first Hermes reply.
+
+## Usage
+
+```text
+python3 harness.py --task TASK [--verify VERIFY] [--workspace WORKSPACE] [--hermes HERMES] [--rounds ROUNDS] [--target TARGET]
+```
+
+| Flag | Required | Default | Role |
+| --- | --- | --- | --- |
+| `--task` | yes | | Goal text sent to Hermes |
+| `--verify` | no | none | Shell command whose exit code decides success |
+| `--workspace` | no | `USERPROFILE` when that directory exists, otherwise the script fallback | Working directory for CLI mode, the check, and the log |
+| `--hermes` | no | `hermes.exe` under the local Hermes install when that file exists, otherwise the script fallback | Path to the Hermes executable |
+| `--rounds` | no | `5` | Maximum task rounds |
+| `--target` | no | first conversation from `conversations_list`, otherwise the first entry from `channels_list` | MCP session key, shaped like `platform:chat` |
+
+One run does the following:
+
+1. Writes the transcript under `<workspace>/collab_logs/collaboration_transcript.log`.
+2. Starts the Hermes MCP server and sends the task with `messages_send`.
+3. Waits on `events_wait` (30 second polls, 300 second overall cap) for an assistant message. An `approval_requested` event is answered with `permissions_respond` and decision `allow-once`.
+4. Runs `--verify` when it is set. Exit code 0 sends a short completion message and stops the loop. Any other exit code sends the combined stdout and stderr into the next round.
+5. Drops to `hermes chat -q` when MCP returns no conversation and no channel.
+
+An empty Hermes reply ends the loop early. If a shell pastes `--rounds`, `--workspace`, or `--hermes` onto the end of `--verify`, the harness removes those flags from the check string before running it.
+
+`HAM_TDD_SPEC.md` documents Hermes MCP tools and a lead session that can call `delegate_task` for research, coding, and QA subagents. That split is guidance for Hermes. `harness.py` talks to one Hermes session and runs the verification command locally.
+
+## Layout
+
+```text
+harness.py
+HAM_TDD_SPEC.md
+README.md
+skills/ham-tdd/SKILL.md
+skills/multi-agent-coordination/SKILL.md
+skills/multi-agent-coordination/references/ham-tdd-mcp-payloads.md
+```
+
+`.gitignore` ignores `collab_logs/`, virtualenvs, bytecode, and local env files. The log directory is created when the harness runs.
+
+## License
+
+`skills/ham-tdd/SKILL.md` and `skills/multi-agent-coordination/SKILL.md` set `license: MIT` in their frontmatter. This repository does not contain a `LICENSE` file.
